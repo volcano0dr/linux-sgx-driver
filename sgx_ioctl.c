@@ -65,9 +65,9 @@
 #include <linux/highmem.h>
 #include <linux/ratelimit.h>
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0))
-	#include <linux/sched/signal.h>
+    #include <linux/sched/signal.h>
 #else
-	#include <linux/signal.h>
+    #include <linux/signal.h>
 #endif
 #include <linux/slab.h>
 #include <linux/hashtable.h>
@@ -75,36 +75,36 @@
 
 int sgx_get_encl(unsigned long addr, struct sgx_encl **encl)
 {
-	struct mm_struct *mm = current->mm;
-	struct vm_area_struct *vma;
-	int ret;
+    struct mm_struct *mm = current->mm;
+    struct vm_area_struct *vma;
+    int ret;
 
-	if (addr & (PAGE_SIZE - 1))
-		return -EINVAL;
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0))
-	mmap_read_lock(mm);
-#else
-	down_read(&mm->mmap_sem);
-#endif
-
-	ret = sgx_encl_find(mm, addr, &vma);
-	if (!ret) {
-		*encl = vma->vm_private_data;
-
-		if ((*encl)->flags & SGX_ENCL_SUSPEND)
-			ret = SGX_POWER_LOST_ENCLAVE;
-		else
-			kref_get(&(*encl)->refcount);
-	}
+    if (addr & (PAGE_SIZE - 1))
+        return -EINVAL;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0))
-	mmap_read_unlock(mm);
+    mmap_read_lock(mm);
 #else
-	up_read(&mm->mmap_sem);
+    down_read(&mm->mmap_sem);
 #endif
 
-	return ret;
+    ret = sgx_encl_find(mm, addr, &vma);
+    if (!ret) {
+        *encl = vma->vm_private_data;
+
+        if ((*encl)->flags & SGX_ENCL_SUSPEND)
+            ret = SGX_POWER_LOST_ENCLAVE;
+        else
+            kref_get(&(*encl)->refcount);
+    }
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0))
+    mmap_read_unlock(mm);
+#else
+    up_read(&mm->mmap_sem);
+#endif
+
+    return ret;
 }
 
 /**
@@ -121,27 +121,27 @@ int sgx_get_encl(unsigned long addr, struct sgx_encl **encl)
  * system error on failure
  */
 static long sgx_ioc_enclave_create(struct file *filep, unsigned int cmd,
-				   unsigned long arg)
+                   unsigned long arg)
 {
-	struct sgx_enclave_create *createp = (struct sgx_enclave_create *)arg;
-	void __user *src = (void __user *)createp->src;
-	struct sgx_secs *secs;
-	int ret;
+    struct sgx_enclave_create *createp = (struct sgx_enclave_create *)arg;
+    void __user *src = (void __user *)createp->src;
+    struct sgx_secs *secs;
+    int ret;
 
-	secs = kzalloc(sizeof(*secs),  GFP_KERNEL);
-	if (!secs)
-		return -ENOMEM;
+    secs = kzalloc(sizeof(*secs),  GFP_KERNEL);
+    if (!secs)
+        return -ENOMEM;
 
-	ret = copy_from_user(secs, src, sizeof(*secs));
-	if (ret) {
-		kfree(secs);
-		return ret;
-	}
+    ret = copy_from_user(secs, src, sizeof(*secs));
+    if (ret) {
+        kfree(secs);
+        return ret;
+    }
 
-	ret = sgx_encl_create(secs);
+    ret = sgx_encl_create(secs);
 
-	kfree(secs);
-	return ret;
+    kfree(secs);
+    return ret;
 }
 
 /**
@@ -159,47 +159,47 @@ static long sgx_ioc_enclave_create(struct file *filep, unsigned int cmd,
  * system error on failure
  */
 static long sgx_ioc_enclave_add_page(struct file *filep, unsigned int cmd,
-				     unsigned long arg)
+                     unsigned long arg)
 {
-	struct sgx_enclave_add_page *addp = (void *)arg;
-	unsigned long secinfop = (unsigned long)addp->secinfo;
-	struct sgx_secinfo secinfo;
-	struct sgx_encl *encl;
-	struct page *data_page;
-	void *data;
-	int ret;
+    struct sgx_enclave_add_page *addp = (void *)arg;
+    unsigned long secinfop = (unsigned long)addp->secinfo;
+    struct sgx_secinfo secinfo;
+    struct sgx_encl *encl;
+    struct page *data_page;
+    void *data;
+    int ret;
 
-	ret = sgx_get_encl(addp->addr, &encl);
-	if (ret)
-		return ret;
+    ret = sgx_get_encl(addp->addr, &encl);
+    if (ret)
+        return ret;
 
-	if (copy_from_user(&secinfo, (void __user *)secinfop,
-			   sizeof(secinfo))) {
-		kref_put(&encl->refcount, sgx_encl_release);
-		return -EFAULT;
-	}
+    if (copy_from_user(&secinfo, (void __user *)secinfop,
+               sizeof(secinfo))) {
+        kref_put(&encl->refcount, sgx_encl_release);
+        return -EFAULT;
+    }
 
-	data_page = alloc_page(GFP_HIGHUSER);
-	if (!data_page) {
-		kref_put(&encl->refcount, sgx_encl_release);
-		return -ENOMEM;
-	}
+    data_page = alloc_page(GFP_HIGHUSER);
+    if (!data_page) {
+        kref_put(&encl->refcount, sgx_encl_release);
+        return -ENOMEM;
+    }
 
-	data = kmap(data_page);
+    data = kmap(data_page);
 
-	ret = copy_from_user((void *)data, (void __user *)addp->src, PAGE_SIZE);
-	if (ret)
-		goto out;
+    ret = copy_from_user((void *)data, (void __user *)addp->src, PAGE_SIZE);
+    if (ret)
+        goto out;
 
-	ret = sgx_encl_add_page(encl, addp->addr, data, &secinfo, addp->mrmask);
-	if (ret)
-		goto out;
+    ret = sgx_encl_add_page(encl, addp->addr, data, &secinfo, addp->mrmask);
+    if (ret)
+        goto out;
 
 out:
-	kref_put(&encl->refcount, sgx_encl_release);
-	kunmap(data_page);
-	__free_page(data_page);
-	return ret;
+    kref_put(&encl->refcount, sgx_encl_release);
+    kunmap(data_page);
+    __free_page(data_page);
+    return ret;
 }
 
 /**
@@ -216,66 +216,158 @@ out:
  * system error on failure
  */
 static long sgx_ioc_enclave_init(struct file *filep, unsigned int cmd,
-				 unsigned long arg)
+                 unsigned long arg)
 {
-	struct sgx_enclave_init *initp = (struct sgx_enclave_init *)arg;
-	unsigned long sigstructp = (unsigned long)initp->sigstruct;
-	unsigned long einittokenp = (unsigned long)initp->einittoken;
-	unsigned long encl_id = initp->addr;
-	struct sgx_sigstruct *sigstruct;
-	struct sgx_einittoken *einittoken;
-	struct sgx_encl *encl;
-	struct page *initp_page;
-	int ret;
+    struct sgx_enclave_init *initp = (struct sgx_enclave_init *)arg;
+    unsigned long sigstructp = (unsigned long)initp->sigstruct;
+    unsigned long einittokenp = (unsigned long)initp->einittoken;
+    unsigned long encl_id = initp->addr;
+    struct sgx_sigstruct *sigstruct;
+    struct sgx_einittoken *einittoken;
+    struct sgx_encl *encl;
+    struct page *initp_page;
+    int ret;
 
-	initp_page = alloc_page(GFP_HIGHUSER);
-	if (!initp_page)
-		return -ENOMEM;
+    initp_page = alloc_page(GFP_HIGHUSER);
+    if (!initp_page)
+        return -ENOMEM;
 
-	sigstruct = kmap(initp_page);
-	einittoken = (struct sgx_einittoken *)
-		((unsigned long)sigstruct + PAGE_SIZE / 2);
+    sigstruct = kmap(initp_page);
+    einittoken = (struct sgx_einittoken *)
+        ((unsigned long)sigstruct + PAGE_SIZE / 2);
 
-	ret = copy_from_user(sigstruct, (void __user *)sigstructp,
-			     sizeof(*sigstruct));
-	if (ret)
-		goto out;
+    ret = copy_from_user(sigstruct, (void __user *)sigstructp,
+                 sizeof(*sigstruct));
+    if (ret)
+        goto out;
 
-	ret = copy_from_user(einittoken, (void __user *)einittokenp,
-			     sizeof(*einittoken));
-	if (ret)
-		goto out;
+    ret = copy_from_user(einittoken, (void __user *)einittokenp,
+                 sizeof(*einittoken));
+    if (ret)
+        goto out;
 
-	ret = sgx_get_encl(encl_id, &encl);
-	if (ret)
-		goto out;
+    ret = sgx_get_encl(encl_id, &encl);
+    if (ret)
+        goto out;
 
-	ret = sgx_encl_init(encl, sigstruct, einittoken);
+    ret = sgx_encl_init(encl, sigstruct, einittoken);
 
-	kref_put(&encl->refcount, sgx_encl_release);
+    kref_put(&encl->refcount, sgx_encl_release);
 
 out:
-	kunmap(initp_page);
-	__free_page(initp_page);
-	return ret;
+    kunmap(initp_page);
+    __free_page(initp_page);
+    return ret;
+}
+
+static long sgx_ioc_enclave_init_dcap(struct file *filep, unsigned int cmd,
+                 unsigned long arg)
+{
+    struct sgx_enclave_init_dcap *initp = (struct sgx_enclave_init_dcap *)arg;
+    unsigned long sigstructp = (unsigned long)initp->sigstruct;
+    unsigned long encl_id = initp->addr;
+    struct sgx_sigstruct *sigstruct;
+    struct sgx_einittoken *einittoken;
+    struct page *initp_page;
+    struct sgx_encl *encl;
+    int ret;
+
+    initp_page = alloc_page(GFP_HIGHUSER);
+    if (!initp_page)
+        return -ENOMEM;
+
+    sigstruct = kmap(initp_page);
+    einittoken = (struct sgx_einittoken*)((unsigned long)sigstruct + PAGE_SIZE / 2);
+    memset((void *)einittoken, 0, sizeof(*einittoken));
+
+    ret = copy_from_user(sigstruct, (void __user *)sigstructp,
+               sizeof(*sigstruct));
+    if (ret)
+        goto out;
+
+    /*
+     * A legacy field used with Intel signed enclaves. These used to mean
+     * regular and architectural enclaves. The CPU only accepts these values
+     * but they do not have any other meaning.
+     *
+     * Thus, reject any other values.
+     */
+    if (sigstruct->header.vendor != 0x0000 &&
+        sigstruct->header.vendor != 0x8086) {
+        ret = -EINVAL;
+        goto out;
+    }
+
+    ret = sgx_get_encl(encl_id, &encl);
+    if (ret)
+        goto out;
+
+    if ((encl->flags & SGX_ENCL_INITIALIZED) ||
+        !(encl->flags & SGX_ENCL_CREATED)) {
+        ret = -EINVAL;
+        goto out;
+    }
+    
+    ret = sgx_encl_init(encl, sigstruct, einittoken);
+
+    kref_put(&encl->refcount, sgx_encl_release);
+
+out:
+    kunmap(initp_page);
+    __free_page(initp_page);
+    return ret;
+}
+
+static long sgx_ioc_enclave_set_attribute(struct file *filep, unsigned int cmd,
+                 unsigned long arg)
+{
+    struct sgx_enclave_set_attribute* params = (struct sgx_enclave_set_attribute *)arg;
+    unsigned long encl_id = params->addr;
+    unsigned long attribute_fd = params->attribute_fd;
+    struct file *attribute_file;
+    struct sgx_encl *encl;
+    int ret;
+
+    attribute_file = fget(attribute_fd);
+    if (!attribute_file)
+        return -EINVAL;
+
+    if (attribute_file->f_op != &sgx_provision_fops) {
+        ret = -EINVAL;
+        goto out;
+    }
+
+    ret = sgx_get_encl(encl_id, &encl);
+    if (ret)
+        goto out;
+
+    encl->allowed_attributes |= SGX_ATTR_PROVISIONKEY;
+    ret = 0;
+
+    kref_put(&encl->refcount, sgx_encl_release);
+
+out:
+    fput(attribute_file);
+    return ret;
+
 }
 
 long sgx_ioc_page_modpr(struct file *filep, unsigned int cmd,
-			unsigned long arg)
+            unsigned long arg)
 {
-	struct sgx_modification_param *p =
-		(struct sgx_modification_param *) arg;
+    struct sgx_modification_param *p =
+        (struct sgx_modification_param *) arg;
 
-	/*
-	 * Only RWX flags in mask are allowed
-	 * Restricting WR w/o RD is not allowed
-	 */
-	if (p->flags & ~(SGX_SECINFO_R | SGX_SECINFO_W | SGX_SECINFO_X))
-		return -EINVAL;
-	if (!(p->flags & SGX_SECINFO_R) &&
-	    (p->flags & SGX_SECINFO_W))
-		return -EINVAL;
-	return modify_range(&p->range, p->flags);
+    /*
+     * Only RWX flags in mask are allowed
+     * Restricting WR w/o RD is not allowed
+     */
+    if (p->flags & ~(SGX_SECINFO_R | SGX_SECINFO_W | SGX_SECINFO_X))
+        return -EINVAL;
+    if (!(p->flags & SGX_SECINFO_R) &&
+        (p->flags & SGX_SECINFO_W))
+        return -EINVAL;
+    return modify_range(&p->range, p->flags);
 }
 
 /**
@@ -285,9 +377,9 @@ long sgx_ioc_page_modpr(struct file *filep, unsigned int cmd,
  * @arg range address of pages to be switched
  */
 long sgx_ioc_page_to_tcs(struct file *filep, unsigned int cmd,
-			 unsigned long arg)
+             unsigned long arg)
 {
-	return modify_range((struct sgx_range *)arg, SGX_SECINFO_TCS);
+    return modify_range((struct sgx_range *)arg, SGX_SECINFO_TCS);
 }
 
 /**
@@ -297,9 +389,9 @@ long sgx_ioc_page_to_tcs(struct file *filep, unsigned int cmd,
  * @arg range address of pages to be trimmed
  */
 long sgx_ioc_trim_page(struct file *filep, unsigned int cmd,
-		       unsigned long arg)
+               unsigned long arg)
 {
-	return modify_range((struct sgx_range *)arg, SGX_SECINFO_TRIM);
+    return modify_range((struct sgx_range *)arg, SGX_SECINFO_TRIM);
 }
 
 /**
@@ -309,42 +401,42 @@ long sgx_ioc_trim_page(struct file *filep, unsigned int cmd,
  * @arg range address of pages
  */
 long sgx_ioc_page_notify_accept(struct file *filep, unsigned int cmd,
-				unsigned long arg)
+                unsigned long arg)
 {
-	struct sgx_range *rg;
-	unsigned long address, end;
-	struct sgx_encl *encl;
-	int ret, tmp_ret = 0;
+    struct sgx_range *rg;
+    unsigned long address, end;
+    struct sgx_encl *encl;
+    int ret, tmp_ret = 0;
 
-	if (!sgx_has_sgx2)
-		return -ENOSYS;
+    if (!sgx_has_sgx2)
+        return -ENOSYS;
 
-	rg = (struct sgx_range *)arg;
+    rg = (struct sgx_range *)arg;
 
-	address = rg->start_addr;
-	address &= ~(PAGE_SIZE-1);
-	end = address + rg->nr_pages * PAGE_SIZE;
+    address = rg->start_addr;
+    address &= ~(PAGE_SIZE-1);
+    end = address + rg->nr_pages * PAGE_SIZE;
 
-	ret = sgx_get_encl(address, &encl);
-	if (ret) {
-		pr_warn("sgx: No enclave found at start address 0x%lx\n",
-			address);
-		return ret;
-	}
+    ret = sgx_get_encl(address, &encl);
+    if (ret) {
+        pr_warn("sgx: No enclave found at start address 0x%lx\n",
+            address);
+        return ret;
+    }
 
-	for (; address < end; address += PAGE_SIZE) {
-		tmp_ret = remove_page(encl, address, true);
-		if (tmp_ret) {
-			sgx_dbg(encl, "sgx: remove failed, addr=0x%lx ret=%d\n",
-				 address, tmp_ret);
-			ret = tmp_ret;
-			continue;
-		}
-	}
+    for (; address < end; address += PAGE_SIZE) {
+        tmp_ret = remove_page(encl, address, true);
+        if (tmp_ret) {
+            sgx_dbg(encl, "sgx: remove failed, addr=0x%lx ret=%d\n",
+                 address, tmp_ret);
+            ret = tmp_ret;
+            continue;
+        }
+    }
 
-	kref_put(&encl->refcount, sgx_encl_release);
+    kref_put(&encl->refcount, sgx_encl_release);
 
-	return ret;
+    return ret;
 }
 
 /**
@@ -352,77 +444,83 @@ long sgx_ioc_page_notify_accept(struct file *filep, unsigned int cmd,
  * @arg address of page
  */
 long sgx_ioc_page_remove(struct file *filep, unsigned int cmd,
-			 unsigned long arg)
+             unsigned long arg)
 {
-	struct sgx_encl *encl;
-	unsigned long address = *((unsigned long *) arg);
-	int ret;
+    struct sgx_encl *encl;
+    unsigned long address = *((unsigned long *) arg);
+    int ret;
 
-	if (!sgx_has_sgx2)
-		return -ENOSYS;
+    if (!sgx_has_sgx2)
+        return -ENOSYS;
 
-	if (sgx_get_encl(address, &encl)) {
-		pr_warn("sgx: No enclave found at start address 0x%lx\n",
-			address);
-		return -EINVAL;
-	}
+    if (sgx_get_encl(address, &encl)) {
+        pr_warn("sgx: No enclave found at start address 0x%lx\n",
+            address);
+        return -EINVAL;
+    }
 
-	ret = remove_page(encl, address, false);
-	if (ret) {
-		pr_warn("sgx: Failed to remove page, address=0x%lx ret=%d\n",
-			address, ret);
-	}
+    ret = remove_page(encl, address, false);
+    if (ret) {
+        pr_warn("sgx: Failed to remove page, address=0x%lx ret=%d\n",
+            address, ret);
+    }
 
-	kref_put(&encl->refcount, sgx_encl_release);
-	return ret;
+    kref_put(&encl->refcount, sgx_encl_release);
+    return ret;
 }
 
 typedef long (*sgx_ioc_t)(struct file *filep, unsigned int cmd,
-			  unsigned long arg);
+              unsigned long arg);
 
 long sgx_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
-	char data[256];
-	sgx_ioc_t handler = NULL;
-	long ret;
+    char data[256];
+    sgx_ioc_t handler = NULL;
+    long ret;
 
-	switch (cmd) {
-	case SGX_IOC_ENCLAVE_CREATE:
-		handler = sgx_ioc_enclave_create;
-		break;
-	case SGX_IOC_ENCLAVE_ADD_PAGE:
-		handler = sgx_ioc_enclave_add_page;
-		break;
-	case SGX_IOC_ENCLAVE_INIT:
-		handler = sgx_ioc_enclave_init;
-		break;
-	case SGX_IOC_ENCLAVE_EMODPR:
-		handler = sgx_ioc_page_modpr;
-		break;
-	case SGX_IOC_ENCLAVE_MKTCS:
-		handler = sgx_ioc_page_to_tcs;
-		break;
-	case SGX_IOC_ENCLAVE_TRIM:
-		handler = sgx_ioc_trim_page;
-		break;
-	case SGX_IOC_ENCLAVE_NOTIFY_ACCEPT:
-		handler = sgx_ioc_page_notify_accept;
-		break;
-	case SGX_IOC_ENCLAVE_PAGE_REMOVE:
-		handler = sgx_ioc_page_remove;
-		break;
-	default:
-		return -ENOIOCTLCMD;
-	}
+    switch (cmd) {
+    case SGX_IOC_ENCLAVE_CREATE:
+        handler = sgx_ioc_enclave_create;
+        break;
+    case SGX_IOC_ENCLAVE_ADD_PAGE:
+        handler = sgx_ioc_enclave_add_page;
+        break;
+    case SGX_IOC_ENCLAVE_INIT:
+        handler = sgx_ioc_enclave_init;
+        break;
+    case SGX_IOC_ENCLAVE_INIT_DCAP:
+        handler = sgx_ioc_enclave_init_dcap;
+        break;
+    case SGX_IOC_ENCLAVE_SET_ATTRIBUTE:
+        handler = sgx_ioc_enclave_set_attribute;
+        break;
+    case SGX_IOC_ENCLAVE_EMODPR:
+        handler = sgx_ioc_page_modpr;
+        break;
+    case SGX_IOC_ENCLAVE_MKTCS:
+        handler = sgx_ioc_page_to_tcs;
+        break;
+    case SGX_IOC_ENCLAVE_TRIM:
+        handler = sgx_ioc_trim_page;
+        break;
+    case SGX_IOC_ENCLAVE_NOTIFY_ACCEPT:
+        handler = sgx_ioc_page_notify_accept;
+        break;
+    case SGX_IOC_ENCLAVE_PAGE_REMOVE:
+        handler = sgx_ioc_page_remove;
+        break;
+    default:
+        return -ENOIOCTLCMD;
+    }
 
-	if (copy_from_user(data, (void __user *)arg, _IOC_SIZE(cmd)))
-		return -EFAULT;
+    if (copy_from_user(data, (void __user *)arg, _IOC_SIZE(cmd)))
+        return -EFAULT;
 
-	ret = handler(filep, cmd, (unsigned long)((void *)data));
-	if (!ret && (cmd & IOC_OUT)) {
-		if (copy_to_user((void __user *)arg, data, _IOC_SIZE(cmd)))
-			return -EFAULT;
-	}
+    ret = handler(filep, cmd, (unsigned long)((void *)data));
+    if (!ret && (cmd & IOC_OUT)) {
+        if (copy_to_user((void __user *)arg, data, _IOC_SIZE(cmd)))
+            return -EFAULT;
+    }
 
-	return ret;
+    return ret;
 }

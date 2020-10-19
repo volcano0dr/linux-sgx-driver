@@ -151,16 +151,18 @@ struct sgx_tgid_ctx {
 };
 
 enum sgx_encl_flags {
-	SGX_ENCL_INITIALIZED	= BIT(0),
-	SGX_ENCL_DEBUG		= BIT(1),
-	SGX_ENCL_SECS_EVICTED	= BIT(2),
-	SGX_ENCL_SUSPEND	= BIT(3),
-	SGX_ENCL_DEAD		= BIT(4),
+	SGX_ENCL_CREATED		= BIT(0),
+	SGX_ENCL_INITIALIZED	= BIT(1),
+	SGX_ENCL_DEBUG			= BIT(2),
+	SGX_ENCL_SECS_EVICTED	= BIT(3),
+	SGX_ENCL_SUSPEND		= BIT(4),
+	SGX_ENCL_DEAD			= BIT(5),
 };
 
 struct sgx_encl {
 	unsigned int flags;
 	uint64_t attributes;
+	uint64_t allowed_attributes;
 	uint64_t xfrm;
 	unsigned int secs_child_cnt;
 	struct mutex lock;
@@ -200,6 +202,8 @@ extern u64 sgx_xfrm_mask;
 extern u32 sgx_misc_reserved;
 extern u32 sgx_xsave_size_tbl[64];
 extern bool sgx_has_sgx2;
+extern bool sgx_has_flc;
+extern const struct file_operations sgx_provision_fops;
 
 extern const struct vm_operations_struct sgx_vm_ops;
 
