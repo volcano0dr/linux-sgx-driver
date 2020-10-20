@@ -310,10 +310,14 @@ static int sgx_dev_init(struct device *parent)
         goto out_workqueue;
     }
 
-    ret = misc_register(&sgx_dev_provision);
-	if (ret) {
-		pr_warn("intel_sgx: creating /dev/sgx_prv failed with %d.\n", ret);
-	}
+    if (sgx_has_flc) {
+        ret = misc_register(&sgx_dev_provision);
+        if (ret) {
+            pr_err("intel_sgx: creating /dev/sgx_prv failed with %d.\n", ret);
+            misc_deregister(&sgx_dev_dcap);
+            goto out_workqueue;
+        }
+    }
 
     on_each_cpu(sgx_reset_pubkey_hash, &msr_reset_failed, 1);
     if (msr_reset_failed) {
@@ -390,13 +394,12 @@ static int sgx_drv_remove(struct platform_device *pdev)
         return 0;
     }
 
-    if (sgx_has_flc)
+    if (sgx_has_flc) {
         misc_deregister(&sgx_dev_dcap);
-    else
+        misc_deregister(&sgx_dev_provision);
+    } else
         misc_deregister(&sgx_dev);
 
-    misc_deregister(&sgx_dev_provision);
-    
     destroy_workqueue(sgx_add_page_wq);
 #ifdef CONFIG_X86_64
     for (i = 0; i < sgx_nr_epc_banks; i++)
